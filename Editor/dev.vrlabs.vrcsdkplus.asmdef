@@ -1,5 +1,5 @@
 {
-    "name": "com.dreadscripts.vrcsdkplus",
+    "name": "dev.vrlabs.vrcsdkplus",
     "references": [],
     "includePlatforms": [
         "Editor"

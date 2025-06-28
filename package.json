@@ -1,17 +1,16 @@
 {
+  "name": "dev.vrlabs.vrcsdkplus",
+  "displayName": "VRCSDK+",
+  "version": "1.6.999",
+  "license": "GPL-3.0",
+  "unity": "2019.4",
   "author": {
-    "name": "Dreadrith",
-    "email": "dreadscripts@gmail.com",
-    "url": "https://github.com/Dreadrith"
+    "name": "VRLabs",
+    "email": "mail@vrlabs.dev",
+    "url": "https://vrlabs.dev"
   },
-  "name": "com.dreadscripts.vrcsdkplus",
-  "displayName": "DreadScripts - VRCSDK+",
-  "version": "1.6.0",
   "description": "An alternative to the VRCSDK expression Menu & Parameters Editors that provides better functionality and quality of life features.",
   "keywords": [
-    "Dreadrith",
-    "DreadScripts",
-    "DreadTools",
     "Editor",
     "Utility",
     "Selection"
@@ -20,8 +19,13 @@
   "vpmDependencies": {
     "com.vrchat.avatars": "^3.0.0"
   },
-  "legacyFolders": {},
-  "legacyFiles": {},
-  "type": "tool",
-  "unity": "2019.4"
+  "legacyFolders": {
+    "Assets/VRLabs/VRCSDKplus": "4631bf5045971da479e8473c008cec64"
+  },
+  "unityPackageDestinationFolder": "Packages/dev.vrlabs.vrcsdkplus",
+  "unityPackageDestinationFolderMetas": {},
+  "vccRepoCategory": "essentials",
+  "media": {
+  },
+  "legacyFiles": {}
 }
