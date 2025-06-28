@@ -12,7 +12,7 @@
 
 A set of alternative custom inspectors for the VRCSDK.
 
-![Manager](https://i.imgur.com/0GLvvGe.gif)
+![VRCSDK+](https://i.imgur.com/0GLvvGe.gif)
 
 ### ⬇️ [Download Latest Version](https://github.com/VRLabs/VRCSDKPlus/releases/latest)
 
