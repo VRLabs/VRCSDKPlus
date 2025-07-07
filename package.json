@@ -25,7 +25,10 @@
   "unityPackageDestinationFolder": "Packages/dev.vrlabs.vrcsdkplus",
   "unityPackageDestinationFolderMetas": {},
   "vccRepoCategory": "rehosted",
+  "siteUrl": "https://github.com/VRLabs/VRCSDKPlus",
   "media": {
+    "previewImage": "https://raw.githubusercontent.com/VRLabs/VRCSDKPlus/main/Media/Web/Preview.webp",
+    "previewGif": "https://raw.githubusercontent.com/VRLabs/VRCSDKPlus/main/Media/Web/PreviewGif.webp"
   },
   "legacyFiles": {}
 }
