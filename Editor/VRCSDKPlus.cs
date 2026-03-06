@@ -149,7 +149,7 @@ namespace DreadScripts.VRCSDKPlus
                 using (new GUILayout.HorizontalScope("helpbox"))
                     DrawAdvancedAvatarFull(ref avatar, validAvatars, RefreshValidParameters, false, false, false, "Active Avatar");
 
-                canCleanup = false;
+                canCleanup = _parameterStatus != null && _parameterStatus.Any(s => s.hasWarning);
                 serializedObject.Update();
                 HandleParameterEvents();
                 parametersOrderList.DoLayoutList();
@@ -280,7 +280,6 @@ namespace DreadScripts.VRCSDKPlus
             private void DrawElement(Rect rect, int index, bool active, bool focused)
             {
                 if (!(index < parameterList.arraySize && index >= 0)) return;
-                
                 var screenRect = GUIUtility.GUIToScreenRect(rect);
                 if (screenRect.y > Screen.currentResolution.height || screenRect.y + screenRect.height < 0) return;
 
@@ -291,6 +290,13 @@ namespace DreadScripts.VRCSDKPlus
                 SerializedProperty saved = parameter.FindPropertyRelative("saved");
                 SerializedProperty synced = hasSyncingOption ? parameter.FindPropertyRelative("networkSynced") : null;
 
+                // If a parameter gets removed from the list, or added to the list while it is open,
+                // then the 2 lists won't match up, and that leads to an exception
+                if (parameterList.arraySize != _parameterStatus.Length)
+                {
+                    RefreshAllParameterStatus();
+                }
+
                 var status = _parameterStatus[index];
                 bool parameterEmpty = status.parameterEmpty;
                 bool parameterAddable = status.parameterAddable;
@@ -298,8 +304,6 @@ namespace DreadScripts.VRCSDKPlus
                 bool hasWarning = status.hasWarning;
                 string warnMsg = parameterEmpty ? "Blank Parameter" : parameterIsDuplicate ? "Duplicate Parameter! May cause issues!" : "Parameter not found in any playable controller of Active Avatar";
                 AnimatorControllerParameter matchedParameter = status.matchedParameter;
-
-                canCleanup |= hasWarning;
 
                 #region Rects
                 rect.y += 1;
