@@ -149,7 +149,7 @@ namespace DreadScripts.VRCSDKPlus
                 using (new GUILayout.HorizontalScope("helpbox"))
                     DrawAdvancedAvatarFull(ref avatar, validAvatars, RefreshValidParameters, false, false, false, "Active Avatar");
 
-                canCleanup = false;
+                canCleanup = _parameterStatus != null && _parameterStatus.Any(s => s.hasWarning);
                 serializedObject.Update();
                 HandleParameterEvents();
                 parametersOrderList.DoLayoutList();
@@ -280,7 +280,6 @@ namespace DreadScripts.VRCSDKPlus
             private void DrawElement(Rect rect, int index, bool active, bool focused)
             {
                 if (!(index < parameterList.arraySize && index >= 0)) return;
-                
                 var screenRect = GUIUtility.GUIToScreenRect(rect);
                 if (screenRect.y > Screen.currentResolution.height || screenRect.y + screenRect.height < 0) return;
 
@@ -298,8 +297,6 @@ namespace DreadScripts.VRCSDKPlus
                 bool hasWarning = status.hasWarning;
                 string warnMsg = parameterEmpty ? "Blank Parameter" : parameterIsDuplicate ? "Duplicate Parameter! May cause issues!" : "Parameter not found in any playable controller of Active Avatar";
                 AnimatorControllerParameter matchedParameter = status.matchedParameter;
-
-                canCleanup |= hasWarning;
 
                 #region Rects
                 rect.y += 1;
