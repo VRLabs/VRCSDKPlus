@@ -290,6 +290,13 @@ namespace DreadScripts.VRCSDKPlus
                 SerializedProperty saved = parameter.FindPropertyRelative("saved");
                 SerializedProperty synced = hasSyncingOption ? parameter.FindPropertyRelative("networkSynced") : null;
 
+                // If a parameter gets removed from the list, or added to the list while it is open,
+                // then the 2 lists won't match up, and that leads to an exception
+                if (parameterList.arraySize != _parameterStatus.Length)
+                {
+                    RefreshAllParameterStatus();
+                }
+
                 var status = _parameterStatus[index];
                 bool parameterEmpty = status.parameterEmpty;
                 bool parameterAddable = status.parameterAddable;
