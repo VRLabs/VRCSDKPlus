@@ -2605,11 +2605,25 @@ namespace DreadScripts.VRCSDKPlus
         {
             Type attributeType = Type.GetType("UnityEditor.CustomEditorAttributes, UnityEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
             Type monoEditorType = Type.GetType("UnityEditor.CustomEditorAttributes+MonoEditorType, UnityEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
+#if UNITY_6000_0_OR_NEWER
+            // Unity 6 moved the editor registry into a lazy instance cache and made entries structs.
+            var instance = attributeType.GetProperty("instance", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            var cache = attributeType.GetField("m_Cache", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(instance);
+            var editorDictionary = (IDictionary)cache.GetType().GetField("m_CustomEditorCache", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(cache);
+            var storage = editorDictionary[componentType];
+            var editorsList = (IList)storage.GetType().GetField("customEditors").GetValue(storage);
+            var previous = editorsList[0];
+            editorsList[0] = Activator.CreateInstance(monoEditorType, editorType,
+                monoEditorType.GetField("supportedRenderPipelineTypes").GetValue(previous),
+                monoEditorType.GetField("editorForChildClasses").GetValue(previous),
+                monoEditorType.GetField("isFallback").GetValue(previous));
+#else
             var editorsField = attributeType.GetField("kSCustomEditors", BindingFlags.Static | BindingFlags.NonPublic);
             var inspectorField = monoEditorType.GetField("m_InspectorType", BindingFlags.Public | BindingFlags.Instance);
             var editorDictionary = editorsField.GetValue(null) as IDictionary;
             var editorsList = editorDictionary[componentType] as IList;
             inspectorField.SetValue(editorsList[0], editorType);
+#endif
 
             var inspectorType = Type.GetType("UnityEditor.InspectorWindow, UnityEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
             var myTestMethod = inspectorType.GetMethod("RefreshInspectors", BindingFlags.NonPublic | BindingFlags.Static);
@@ -2633,12 +2647,14 @@ namespace DreadScripts.VRCSDKPlus
 
             try
             {
+#if !UNITY_6000_0_OR_NEWER
                 if (!(bool)editorsInitializedField.GetValue(null))
                 {
                     MethodInfo rebuildEditorsMethod = attributeType.GetMethod("Rebuild", BindingFlags.Static | BindingFlags.NonPublic);
                     rebuildEditorsMethod.Invoke(null, null);
                     editorsInitializedField.SetValue(null, true);
                 }
+#endif
 
                 OverrideEditor(typeof(VRCExpressionParameters), typeof(VRCParamsPlus));
                 OverrideEditor(typeof(VRCExpressionsMenu), typeof(VRCMenuPlus));
