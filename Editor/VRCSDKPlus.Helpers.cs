@@ -110,33 +110,26 @@ namespace DreadScripts.VRCSDKPlus
 #endif
         }
 
+        private static bool IsActiveAvatar(VRCAvatarDescriptor descriptor) => descriptor && descriptor.gameObject.activeInHierarchy;
+
         internal static void RefreshAvatar(ref VRCAvatarDescriptor avatar, ref VRCAvatarDescriptor[] validAvatars, Action OnAvatarChanged = null, Func<VRCAvatarDescriptor, bool> favoredAvatar = null)
         {
             // Include inactive avatars, so a deactivated active avatar stays in the list.
             validAvatars = FindAvatars();
 
-            // Prefer the avatar the caller asks for (e.g. the one that uses this parameters asset),
-            // even when another avatar is still selected from earlier.
-            if (favoredAvatar != null)
-            {
-                VRCAvatarDescriptor favored = validAvatars.FirstOrDefault(a => a && favoredAvatar(a));
-                if (favored && favored != avatar)
-                {
-                    avatar = favored;
-                    OnAvatarChanged?.Invoke();
-                    return;
-                }
-            }
+            // An avatar that's active in the scene always comes first. Among those, or if none are active, prefer
+            // the one the caller asks for (e.g. the one that uses this parameters asset), then the current one.
+            VRCAvatarDescriptor[] candidates = validAvatars.Where(IsActiveAvatar).ToArray();
+            if (candidates.Length == 0) candidates = validAvatars;
 
-            if (avatar) return;
+            VRCAvatarDescriptor current = avatar;
+            VRCAvatarDescriptor best = favoredAvatar == null || (current && candidates.Contains(current) && favoredAvatar(current))
+                ? null
+                : candidates.FirstOrDefault(favoredAvatar);
+            if (!best) best = candidates.Contains(current) ? current : candidates.FirstOrDefault();
+            if (best == current) return;
 
-            if (validAvatars.Length > 0)
-            {
-                if (favoredAvatar != null)
-                    avatar = validAvatars.FirstOrDefault(favoredAvatar) ?? validAvatars[0];
-                else avatar = validAvatars[0];
-            }
-
+            avatar = best;
             OnAvatarChanged?.Invoke();
         }
 

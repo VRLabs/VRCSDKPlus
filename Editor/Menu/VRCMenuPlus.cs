@@ -15,7 +15,6 @@ namespace DreadScripts.VRCSDKPlus
         {
             private static bool editorActive = true;
             private static VRCAvatarDescriptor _avatar;
-            private static VRCAvatarDescriptor[] _activeAvatars = Array.Empty<VRCAvatarDescriptor>();
             private VRCAvatarDescriptor[] _validAvatars;
             private ReorderableList _controlsList;
 
@@ -45,15 +44,12 @@ namespace DreadScripts.VRCSDKPlus
             }
 
             /// <summary>
-            /// Switches to an avatar that's active in the scene, if the current one isn't. Only runs when a menu is opened, and
-            /// only if other avatars are active than the last time, so a picked inactive avatar stays while going through menus.
+            /// Switches to an avatar that's active in the scene, if the current one isn't. Only runs when a menu is opened.
             /// </summary>
             private void DetectAvatar()
             {
                 VRCAvatarDescriptor[] active = FindAvatars().Where(a => a.gameObject.activeInHierarchy).ToArray();
-                bool changed = !active.SequenceEqual(_activeAvatars);
-                _activeAvatars = active;
-                if (active.Length == 0 || (_avatar && (!changed || active.Contains(_avatar)))) return;
+                if (active.Length == 0 || active.Contains(_avatar)) return;
 
                 VRCAvatarDescriptor previous = _avatar;
                 _avatar = active.FirstOrDefault(UsesCurrentMenu) ?? active[0];
