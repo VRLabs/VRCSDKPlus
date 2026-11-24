@@ -203,34 +203,23 @@ namespace DreadScripts.VRCSDKPlus
                     Rect boldRect = new Rect(colorRect.x + colorRect.width, rect.y, toggleSize, rect.height);
                     Rect italicRect = new Rect(boldRect); italicRect.x += italicRect.width + 3; boldRect.width = toggleSize;
                     string rawName = property.FindPropertyRelative("name").stringValue;
-                    Color textColor = Color.white;
 
-                    var isBold = rawName.Contains("<b>") && rawName.Contains("</b>");
-                    var isItalic = rawName.Contains("<i>") && rawName.Contains("</i>");
-                    var m = Regex.Match(rawName, @"<color=(#[0-9|A-F]{6,8})>");
-                    if (m.Success)
-                    {
-                        if (rawName.Contains("</color>"))
-                        {
-                            if (ColorUtility.TryParseHtmlString(m.Groups[1].Value, out Color newColor))
-                                textColor = newColor;
-
-                        }
-                    }
-
+                    var isBold = VRCSDKPlusToolbox.RichText.HasTag(rawName, 'b');
+                    var isItalic = VRCSDKPlusToolbox.RichText.HasTag(rawName, 'i');
+                    VRCSDKPlusToolbox.RichText.TryGetColor(rawName, out Color textColor);
 
                     EditorGUI.BeginChangeCheck();
                     textColor = EditorGUI.ColorField(colorRect, textColor);
                     if (EditorGUI.EndChangeCheck())
                     {
-                        rawName = Regex.Replace(rawName, @"</?color=?.*?>", string.Empty);
+                        rawName = Regex.Replace(rawName, @"</?color\s*(=[^<>]*)?>|<#[0-9a-f]+>", string.Empty, RegexOptions.IgnoreCase);
                         rawName = $"<color=#{ColorUtility.ToHtmlStringRGB(textColor)}>{rawName}</color>";
                     }
                     
                     void SetCharTag(char c, bool state)
                     {
                         rawName = !state ?
-                            Regex.Replace(rawName, $@"</?{c}>", string.Empty) : 
+                            Regex.Replace(rawName, $@"</?{c}>", string.Empty, RegexOptions.IgnoreCase) : 
                             $"<{c}>{rawName}</{c}>";
                     }
 

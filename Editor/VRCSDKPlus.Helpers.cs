@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Reflection;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 using Object = UnityEngine.Object;
@@ -153,21 +154,67 @@ namespace DreadScripts.VRCSDKPlus
                     // Use the same filtered list for the names, the current index and the picked avatar,
                     // so a deleted avatar can't shift the choices.
                     VRCAvatarDescriptor[] aliveAvatars = validAvatars.Where(a => a).ToArray();
-                    using (var change = new EditorGUI.ChangeCheckScope())
+                    if (AvatarPopup(avatarContent, ref avatar, aliveAvatars, validAvatars))
                     {
-                        int dummy = EditorGUILayout.Popup(avatarContent, avatar ? Array.IndexOf(aliveAvatars, avatar) : -1, aliveAvatars.Select(x => x.name).ToArray());
-                        if (change.changed && dummy >= 0 && dummy < aliveAvatars.Length)
-                        {
-                            avatar = aliveAvatars[dummy];
-                            EditorGUIUtility.PingObject(avatar);
-                            OnAvatarChanged?.Invoke();
-                        }
+                        EditorGUIUtility.PingObject(avatar);
+                        OnAvatarChanged?.Invoke();
                     }
                 }
 
                 ExtraGUI?.Invoke();
             }
             return avatar;
+        }
+
+        private static object avatarPickOwner;
+        private static VRCAvatarDescriptor pickedAvatar;
+
+        /// <summary>
+        /// A dropdown of avatars, split into the ones that are active in the scene and the ones that aren't.
+        /// Returns true when another one was picked. <paramref name="owner"/> tells apart the dropdowns that are drawn at the same time.
+        /// </summary>
+        private static bool AvatarPopup(GUIContent label, ref VRCAvatarDescriptor current, VRCAvatarDescriptor[] avatars, object owner)
+        {
+            Rect rect = EditorGUILayout.GetControlRect();
+            Rect popupRect = EditorGUI.PrefixLabel(rect, label);
+            if (EditorGUI.DropdownButton(popupRect, new GUIContent(current ? current.name : string.Empty), FocusType.Keyboard, EditorStyles.popup))
+                ShowAvatarMenu(popupRect, current, avatars, owner);
+
+            // The menu's callback runs outside of OnInspectorGUI. Only changed on layout, so the layout stays the same until the next one.
+            if (Event.current.type != EventType.Layout || avatarPickOwner == null || !ReferenceEquals(avatarPickOwner, owner)) return false;
+            avatarPickOwner = null;
+            if (!pickedAvatar || pickedAvatar == current) return false;
+            current = pickedAvatar;
+            GUI.changed = true;
+            return true;
+        }
+
+        private static void ShowAvatarMenu(Rect position, VRCAvatarDescriptor current, VRCAvatarDescriptor[] avatars, object owner)
+        {
+            GenericMenu menu = new GenericMenu { allowDuplicateNames = true };
+
+            void AddSection(string title, VRCAvatarDescriptor[] section)
+            {
+                if (section.Length == 0) return;
+                if (menu.GetItemCount() > 0) menu.AddSeparator(string.Empty);
+                // Only a heading.
+                menu.AddDisabledItem(new GUIContent(title));
+                menu.AddSeparator(string.Empty);
+                foreach (VRCAvatarDescriptor descriptor in section)
+                {
+                    // A slash would make a submenu.
+                    menu.AddItem(new GUIContent(descriptor.name.Replace('/', '\u2215')), descriptor == current, () =>
+                    {
+                        avatarPickOwner = owner;
+                        pickedAvatar = descriptor;
+                        InternalEditorUtility.RepaintAllViews();
+                    });
+                }
+            }
+
+            AddSection("Active", avatars.Where(a => a && a.gameObject.activeInHierarchy).ToArray());
+            AddSection("Inactive", avatars.Where(a => a && !a.gameObject.activeInHierarchy).ToArray());
+            menu.DropDown(position);
         }
 
         private static bool DrawAdvancedAvatarWarning(VRCAvatarDescriptor avatar, bool warnNonHumanoid = true, bool warnPrefab = true, bool warnDoubleFX = true)

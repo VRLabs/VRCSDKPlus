@@ -174,6 +174,9 @@ namespace DreadScripts.VRCSDKPlus
 
             public static readonly UnityEngine.GUIContent Search
                 = new UnityEngine.GUIContent(EditorGUIUtility.IconContent(VRCSDKPlusToolbox.Strings.IconSearch)) {tooltip = "Search"};
+
+            public static readonly UnityEngine.GUIContent PickParameter
+                = new UnityEngine.GUIContent(EditorGUIUtility.IconContent(VRCSDKPlusToolbox.Strings.IconSearch));
         }
     }
 }

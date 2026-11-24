@@ -15,6 +15,7 @@ namespace DreadScripts.VRCSDKPlus
         {
             private static bool editorActive = true;
             private static VRCAvatarDescriptor _avatar;
+            private static VRCAvatarDescriptor[] _activeAvatars = Array.Empty<VRCAvatarDescriptor>();
             private VRCAvatarDescriptor[] _validAvatars;
             private ReorderableList _controlsList;
 
@@ -32,7 +33,7 @@ namespace DreadScripts.VRCSDKPlus
                 CheckAvatar();
                 CheckMenu();
                 InitializeList();
-                FillParameters(false);
+                if (_avatar && CurrentMenu && !CurrentMenu.Parameters) FillParameters(_avatar);
             }
 
             private void CheckAvatar()
@@ -40,8 +41,28 @@ namespace DreadScripts.VRCSDKPlus
                 // Include inactive avatars, so deactivating the active avatar doesn't make the inspector re-initialize every frame.
                 _validAvatars = FindAvatars();
                 if (_validAvatars.Length == 0) _avatar = null;
-                else if (!_avatar) _avatar = _validAvatars[0];
+                else if (!_avatar) _avatar = _validAvatars.FirstOrDefault(a => a.gameObject.activeInHierarchy) ?? _validAvatars[0];
             }
+
+            /// <summary>
+            /// Switches to an avatar that's active in the scene, if the current one isn't. Only runs when a menu is opened, and
+            /// only if other avatars are active than the last time, so a picked inactive avatar stays while going through menus.
+            /// </summary>
+            private void DetectAvatar()
+            {
+                VRCAvatarDescriptor[] active = FindAvatars().Where(a => a.gameObject.activeInHierarchy).ToArray();
+                bool changed = !active.SequenceEqual(_activeAvatars);
+                _activeAvatars = active;
+                if (active.Length == 0 || (_avatar && (!changed || active.Contains(_avatar)))) return;
+
+                VRCAvatarDescriptor previous = _avatar;
+                _avatar = active.FirstOrDefault(UsesCurrentMenu) ?? active[0];
+                // A menu of another avatar keeps its parameters.
+                if (previous && UsesCurrentMenu(_avatar)) FillParameters(_avatar);
+            }
+
+            private bool UsesCurrentMenu(VRCAvatarDescriptor descriptor)
+                => descriptor.expressionsMenu && CollectMenus(descriptor.expressionsMenu).Contains(CurrentMenu);
 
             private void CheckMenu()
             {
@@ -196,7 +217,7 @@ namespace DreadScripts.VRCSDKPlus
                             : VRCSDKPlusToolbox.Styles.Label.Type);
 
                     // Draw control name
-                    var nameGuiContent = new GUIContent(controlProp.FindPropertyRelative("name").stringValue);
+                    var nameGuiContent = new GUIContent(VRCSDKPlusToolbox.RichText.ToInspector(controlProp.FindPropertyRelative("name").stringValue, VRCSDKPlusToolbox.Styles.Label.RichText.normal.textColor));
                     bool emptyName = string.IsNullOrEmpty(nameGuiContent.text);
                     if (emptyName) nameGuiContent.text = "[Unnamed]";
 
@@ -271,7 +292,11 @@ namespace DreadScripts.VRCSDKPlus
                 serializedObject.ApplyModifiedProperties();
             }
 
-            private void OnEnable() => ReInitializeAll();
+            private void OnEnable()
+            {
+                if (CurrentMenu) DetectAvatar();
+                ReInitializeAll();
+            }
 
             private void DrawHistory()
             {
@@ -336,61 +361,49 @@ namespace DreadScripts.VRCSDKPlus
             {
                 #region Avatar Selector
 
-                // Generate name string array
-                var targetsAsString = _validAvatars.Select(t => t.gameObject.name).ToArray();
-
                 // Draw selection
                 using (new EditorGUI.DisabledScope(_validAvatars.Length <= 1))
                 {
                     using (new VRCSDKPlusToolbox.Container.Horizontal())
                     {
-                        var content = new GUIContent("Active Avatar", "The auto-fill and warnings will be based on this avatar's expression parameters");
+                        var content = new GUIContent("Active Avatar", "Sets the parameters below to this avatar's expression parameters");
                         if (_validAvatars.Length >= 1)
                         {
-                            using (var change = new EditorGUI.ChangeCheckScope())
+                            bool picked = AvatarPopup(content, ref _avatar, _validAvatars, this);
+                            if (!_avatar || !_validAvatars.Contains(_avatar))
+                                ReInitializeAll();
+                            else if (picked)
                             {
-                                var targetIndex = EditorGUILayout.Popup(
-                                    content,
-                                    _validAvatars.FindIndex(_avatar),
-                                    targetsAsString);
-
-                                if (targetIndex == -1)
-                                    ReInitializeAll();
-                                else if (change.changed)
-                                {
-                                    _avatar = _validAvatars[targetIndex];
-                                    ReInitializeAll();
-                                    FillParameters(true);
-                                }
+                                ReInitializeAll();
+                                if (_avatar.expressionParameters)
+                                    serializedObject.FindProperty("Parameters").objectReferenceValue = _avatar.expressionParameters;
                             }
                         }
                         else EditorGUILayout.LabelField(content, new GUIContent("No Avatar Descriptors found"), VRCSDKPlusToolbox.Styles.Label.LabelDropdown);
-
-                        if (!ActiveParameters)
-                            GUILayout.Label(new GUIContent(VRCSDKPlusToolbox.GUIContent.Error) { tooltip = VRCSDKPlusToolbox.GUIContent.MissingParametersTooltip }, GUILayout.Width(18));
                     }
+                }
+
+                #endregion
+
+                #region Parameters
+
+                using (new VRCSDKPlusToolbox.Container.Horizontal())
+                {
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("Parameters"), new GUIContent("Parameters", "The auto-fill and warnings are based on these expression parameters. Changing the Active Avatar sets them to that avatar's."));
+                    if (!ActiveParameters)
+                        GUILayout.Label(new GUIContent(VRCSDKPlusToolbox.GUIContent.Error) { tooltip = VRCSDKPlusToolbox.GUIContent.MissingParametersTooltip }, GUILayout.Width(18));
                 }
 
                 #endregion
             }
 
-            // The Active Avatar's parameters, or the ones assigned to the menu itself when there are none.
+            // The menu's parameters, or the Active Avatar's when it doesn't have any.
             private VRCExpressionParameters ActiveParameters =>
-                _avatar && _avatar.expressionParameters ? _avatar.expressionParameters : CurrentMenu.Parameters;
+                CurrentMenu.Parameters ? CurrentMenu.Parameters : _avatar ? _avatar.expressionParameters : null;
 
-            /// <summary>
-            /// Fills in the menu's own parameters (shown by the official editor) from the Active Avatar.
-            /// Parameters that are already set are only replaced when that avatar uses this menu, or was just picked,
-            /// so viewing another avatar's menu doesn't change it.
-            /// </summary>
-            private void FillParameters(bool avatarPicked)
+            private void FillParameters(VRCAvatarDescriptor descriptor)
             {
-                VRCExpressionsMenu menu = CurrentMenu;
-                if (!menu || !_avatar || !_avatar.expressionParameters || menu.Parameters == _avatar.expressionParameters) return;
-
-                bool usesMenu = _avatar.expressionsMenu && CollectMenus(_avatar.expressionsMenu).Contains(menu);
-                if (avatarPicked || !menu.Parameters || usesMenu)
-                    menu.Parameters = _avatar.expressionParameters;
+                if (descriptor.expressionParameters) CurrentMenu.Parameters = descriptor.expressionParameters;
             }
 
             void DrawBody()

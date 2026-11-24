@@ -238,8 +238,8 @@ namespace DreadScripts.VRCSDKPlus
                 UseEnd(ref rect, 32, true, 4, true);
                 Rect syncedRect = hasSyncingOption ? UseEnd(ref rect, 54, true) : Rect.zero;
                 Rect savedRect = UseEnd(ref rect, 54, true);
-                Rect defaultRect = UseEnd(ref rect, 117, true);
-                Rect typeRect = UseEnd(ref rect, 75, true);
+                Rect defaultRect = UseEnd(ref rect, 92, true);
+                Rect typeRect = UseEnd(ref rect, 42, true);
                 UseEnd(ref rect, 48, true);
                 Rect nameRect = UseNext(100);
 
@@ -268,7 +268,8 @@ namespace DreadScripts.VRCSDKPlus
                 GUI.Label(nameRect, new GUIContent("Name","Name of the Parameter. This must match the name of the parameter that it is controlling in the playable layers. Case sensitive."), centeredLabel);
 
 
-                w_MakeRectLinkCursor(searchClearRect);
+                // With an empty rect, this would use the last layout rect, which is the list's whole footer.
+                if (isSearching) w_MakeRectLinkCursor(searchClearRect);
                 if (GUI.Button(searchClearRect, string.Empty, GUIStyle.none))
                 {
                     searchValue = string.Empty;
@@ -387,6 +388,7 @@ namespace DreadScripts.VRCSDKPlus
                 {
                     drawElementCallback = DrawElement,
                     drawHeaderCallback = DrawHeader,
+                    drawFooterCallback = DrawFooter,
                     elementHeightCallback = GetElementHeight,
                     multiSelect = true
                 };
@@ -397,15 +399,6 @@ namespace DreadScripts.VRCSDKPlus
                     RefreshAllParameterStatus();
                 };
                 parametersOrderList.onMouseDragCallback = _ => BeginGroupDrag();
-                parametersOrderList.onAddCallback = _ =>
-                {
-                    int newIndex = parameterList.arraySize;
-                    parameterList.InsertArrayElementAtIndex(newIndex);
-                    MakeParameterUnique(newIndex);
-                    // Inserting into an empty array gives zeroed fields (bitWidth 0, which the SDK syncs as 2 bits).
-                    FixNewParameterBitWidth(parameterList.GetArrayElementAtIndex(newIndex));
-                    UpdateEmptyFlag();
-                };
             }
 
             private void MakeParameterUnique(int index)

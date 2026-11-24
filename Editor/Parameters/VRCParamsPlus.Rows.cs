@@ -5,10 +5,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
-using VRC.SDK3.Avatars.Components;
-using AnimatorController = UnityEditor.Animations.AnimatorController;
 using AnimatorControllerParameter = UnityEngine.AnimatorControllerParameter;
-using AnimatorControllerParameterType = UnityEngine.AnimatorControllerParameterType;
 
 namespace DreadScripts.VRCSDKPlus
 {
@@ -140,14 +137,13 @@ namespace DreadScripts.VRCSDKPlus
                 Rect removeRect = UseEnd(ref rect, 32, true, 4, true);
                 Rect syncedRect = hasSyncingOption ? UseEnd(ref rect, 18, true, 16f, true) : Rect.zero;
                 Rect savedRect = UseEnd(ref rect, 18, true, hasSyncingOption ? 34f : 16, true);
-                Rect defaultRect = UseEnd(ref rect, 85, true, 32, true);
-                Rect typeRect = UseEnd(ref rect, 85, true, 12, true);
+                Rect defaultRect = UseEnd(ref rect, 60, true, 32, true);
+                Rect typeRect = UseEnd(ref rect, 52, true, 12, true);
                 Rect warnRect = UseEnd(ref rect, 18, true, 4, true);
-                Rect addRect = hasWarning && parameterAddable ? UseEnd(ref rect, 55, true, 4, true) : Rect.zero;
-                Rect dropdownRect = UseEnd(ref rect, 21, true, 1, true);
-                dropdownRect.x -= 3;
+                Rect addRect = hasWarning && parameterAddable ? UseEnd(ref rect, 32, true, 4, true) : Rect.zero;
                 Rect foldoutRect = showAdvanced ? UseNext(14, true) : Rect.zero;
-                Rect nameRect = UseNext(100);
+                // UseNext moves the rect without shrinking it, so the arrow's width has to come off the name.
+                Rect nameRect = UseNext(rect.width - foldoutRect.width - 4, true);
                 #endregion
 
                 using (new EditorGUI.DisabledScope(!string.IsNullOrEmpty(searchValue) && !MatchesSearch(name.stringValue, searchValue)))
@@ -178,31 +174,6 @@ namespace DreadScripts.VRCSDKPlus
                     //Hacky way to avoid proper UI Layout
                     string parameterFieldName = $"namefield{index}";
                     
-                    using (new EditorGUI.DisabledScope(validParameters.Length == 0))
-                        if (GUI.Button(dropdownRect, GUIContent.none, EditorStyles.popup))
-                        {
-
-                            var filteredParameters = validParameters.Where(conParam => !parameterList.IterateArray((_, prop) => prop.FindPropertyRelative("name").stringValue == conParam.name)).ToArray();
-                            if (filteredParameters.Any())
-                            {
-                                VRCSDKPlusToolbox.CustomDropdown<AnimatorControllerParameter> textDropdown = new VRCSDKPlusToolbox.CustomDropdown<AnimatorControllerParameter>(null, filteredParameters, item =>
-                                {
-                                    using (new GUILayout.HorizontalScope())
-                                    {
-                                        GUILayout.Label(item.value.name);
-                                        GUILayout.Label(item.value.type.ToString(), VRCSDKPlusToolbox.Styles.Label.TypeLabel, GUILayout.ExpandWidth(false));
-                                    }
-                                }, (_, conParam) =>
-                                {
-                                    name.stringValue = conParam.name;
-                                    name.serializedObject.ApplyModifiedProperties();
-                                    RefreshAllParameterStatus();
-                                });
-                                textDropdown.EnableSearch((conParameter, search) => MatchesSearch(conParameter.name, search));
-                                textDropdown.Show(nameRect);
-                            }
-                        }
-
                     GUI.SetNextControlName(parameterFieldName);
                     EditorGUI.PropertyField(nameRect, name, GUIContent.none);
                     EditorGUI.BeginChangeCheck();
@@ -217,57 +188,16 @@ namespace DreadScripts.VRCSDKPlus
                     }
                     EditorGUI.PropertyField(savedRect, saved, GUIContent.none);
 
-                    GUI.Label(nameRect, matchedParameter != null ? $"({matchedParameter.type})" : "(?)", VRCSDKPlusToolbox.Styles.Label.RightPlaceHolder);
+                    if (matchedParameter != null)
+                        GUI.Label(nameRect, $"({matchedParameter.type})", VRCSDKPlusToolbox.Styles.Label.RightPlaceHolder);
 
                     if (hasSyncingOption) EditorGUI.PropertyField(syncedRect, synced, GUIContent.none);
 
                     if (parameterAddable)
                     {
-                        using (var change = new EditorGUI.ChangeCheckScope())
-                        {
-                            w_MakeRectLinkCursor(addRect);
-                            int dummy = EditorGUI.IntPopup(addRect, -1, validPlayables, validPlayableIndexes);
-                            if (change.changed)
-                            {
-                                var playable = (VRCAvatarDescriptor.AnimLayerType) dummy;
-                                if (avatar.GetPlayableLayer(playable, out AnimatorController c))
-                                {
-                                    if (c.parameters.All(p => p.name != name.stringValue))
-                                    {
-                                        AnimatorControllerParameterType paramType;
-                                        switch (valueType.enumValueIndex)
-                                        {
-                                            case 0:
-                                                paramType = AnimatorControllerParameterType.Int;
-                                                break;
-                                            case 1:
-                                                paramType = AnimatorControllerParameterType.Float;
-                                                break;
-                                            default:
-                                            case 2:
-                                                paramType = AnimatorControllerParameterType.Bool;
-                                                break;
-                                        }
-
-                                        c.AddParameter(new AnimatorControllerParameter()
-                                        {
-                                            name = name.stringValue,
-                                            type = paramType,
-                                            defaultFloat = defaultValue.floatValue,
-                                            defaultInt = (int) defaultValue.floatValue,
-                                            defaultBool = defaultValue.floatValue > 0
-                                        });
-
-                                        GreenLog($"Added {paramType} {name.stringValue} to {playable} Playable Controller");
-                                    }
-
-                                    RefreshValidParameters();
-                                }
-                            }
-                        }
-
-                        addRect.x += 3;
-                        GUI.Label(addRect, "Add");
+                        w_MakeRectLinkCursor(addRect);
+                        if (EditorGUI.DropdownButton(addRect, new GUIContent("+", "Add this parameter to one of the avatar's controllers"), FocusType.Keyboard, EditorStyles.popup))
+                            ShowAddToAnimatorMenu(addRect, name.stringValue, valueType.enumValueIndex, defaultValue.floatValue);
                     }
 
                     if (hasWarning) GUI.Label(warnRect, new GUIContent(yellowWarnIcon) {tooltip = warnMsg});

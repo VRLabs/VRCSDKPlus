@@ -23,6 +23,15 @@ namespace DreadScripts.VRCSDKPlus
             private static readonly int[] bitValues = { 2, 3, 4, 5, 6, 7, 8 };
             private static readonly string[] boolBitOptions = { "1" };
 
+            private const string LerpTooltip = "Default or custom lerp duration for this parameter. Bools never lerp.";
+            private const string BitsTooltip = "How many bits this parameter uses when synced.";
+            private const string IntSignTooltip = "Whether this Int can sync negative values.\n\nUnsigned: Starts at 0.\nSigned: Half of the values are negative, so the highest value is lower.";
+            private const string FloatSignTooltip = "Whether this Float can sync negative values.\n\nUnsigned: From 0 to 1, in smaller steps.\nSigned: From -1 to 1.";
+            private const string BoolSignTooltip = "Bools are always unsigned.";
+            private const string IntRangeTooltip = "The lowest and highest value this parameter can sync with the chosen bits and sign.";
+            private const string FloatRangeTooltip = IntRangeTooltip + "\n\nStep is the smallest difference between two synced values. More bits make it smaller.";
+            private const string BoolRangeTooltip = "Bools always use 1 bit and are either True or False.";
+
             /// <summary>
             /// A parameter added to an empty list has every field zeroed, including bitWidth = 0, which the SDK clamps to
             /// 2 bits. Give it the width a new parameter should have (8, or 1 for Bool), as the official editor does.
@@ -70,10 +79,12 @@ namespace DreadScripts.VRCSDKPlus
 
                 using (new EditorGUI.DisabledScope(isBool))
                 {
-                    GUI.Label(Take(32), new GUIContent("Lerp", "Default or custom lerp duration for this parameter. Bools never lerp."));
+                    GUI.Label(Take(32), new GUIContent("Lerp", LerpTooltip));
+                    Rect lerpRect = Take(70);
                     EditorGUI.BeginChangeCheck();
-                    int lerpIndex = EditorGUI.Popup(Take(70), useLerp.boolValue ? 1 : 0, lerpOptions);
+                    int lerpIndex = EditorGUI.Popup(lerpRect, useLerp.boolValue ? 1 : 0, lerpOptions);
                     if (EditorGUI.EndChangeCheck()) useLerp.boolValue = lerpIndex == 1;
+                    DrawTooltip(lerpRect, LerpTooltip);
 
                     if (useLerp.boolValue)
                     {
@@ -86,24 +97,27 @@ namespace DreadScripts.VRCSDKPlus
 
                     Take(gap);
 
-                    GUI.Label(Take(30), new GUIContent("Bits", "How many bits this parameter uses when synced."));
+                    GUI.Label(Take(30), new GUIContent("Bits", BitsTooltip));
+                    Rect bitsRect = Take(40);
                     if (isBool)
-                        EditorGUI.Popup(Take(40), 0, boolBitOptions);
+                        EditorGUI.Popup(bitsRect, 0, boolBitOptions);
                     else
                     {
                         EditorGUI.BeginChangeCheck();
-                        int newBits = EditorGUI.IntPopup(Take(40), bits, bitOptions, bitValues);
+                        int newBits = EditorGUI.IntPopup(bitsRect, bits, bitOptions, bitValues);
                         if (EditorGUI.EndChangeCheck())
                         {
                             bitWidth.intValue = newBits;
                             ClampDefaultValue(valueType, defaultValue, newBits, signed);
                         }
                     }
+                    DrawTooltip(bitsRect, BitsTooltip);
 
                     Take(gap);
 
+                    Rect signRect = Take(80);
                     EditorGUI.BeginChangeCheck();
-                    int repIndex = EditorGUI.Popup(Take(80), signed ? 1 : 0, representationOptions);
+                    int repIndex = EditorGUI.Popup(signRect, signed ? 1 : 0, representationOptions);
                     if (EditorGUI.EndChangeCheck() && !isBool)
                     {
                         bool newSigned = repIndex == 1;
@@ -111,12 +125,18 @@ namespace DreadScripts.VRCSDKPlus
                         flippedRep.boolValue = typeIndex == 1 ? !newSigned : newSigned;
                         ClampDefaultValue(valueType, defaultValue, EffectiveBits(typeIndex, bitWidth.intValue), newSigned);
                     }
+                    DrawTooltip(signRect, isBool ? BoolSignTooltip : typeIndex == 1 ? FloatSignTooltip : IntSignTooltip);
 
                     Take(gap);
                 }
 
-                GUI.Label(rect, GetRangeLabel(typeIndex, EffectiveBits(typeIndex, bitWidth.intValue), IsSigned(typeIndex, flippedRep.boolValue)), EditorStyles.miniLabel);
+                string rangeLabel = GetRangeLabel(typeIndex, EffectiveBits(typeIndex, bitWidth.intValue), IsSigned(typeIndex, flippedRep.boolValue));
+                string rangeTooltip = isBool ? BoolRangeTooltip : typeIndex == 1 ? FloatRangeTooltip : IntRangeTooltip;
+                GUI.Label(rect, new GUIContent(rangeLabel, rangeTooltip), EditorStyles.miniLabel);
             }
+
+            /// <summary>Dropdowns without a label can't have a tooltip of their own, so an empty label is drawn over them.</summary>
+            private static void DrawTooltip(Rect rect, string tooltip) => GUI.Label(rect, new GUIContent(string.Empty, tooltip));
 
             private static void ClampDefaultValue(SerializedProperty valueType, SerializedProperty defaultValue, int bits, bool signed)
             {
