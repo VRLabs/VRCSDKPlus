@@ -89,6 +89,7 @@ namespace DreadScripts.VRCSDKPlus
             public const string IconFolder = "FolderOpened Icon";
             public const string IconRemove = "Toolbar Minus";
             public const string IconSearch = "Search Icon";
+            public const string IconRefresh = "Refresh@2x";
 
             public const string ClipboardPrefixControl = "[TAG=VSP_CONTROL]";
 
@@ -174,6 +175,9 @@ namespace DreadScripts.VRCSDKPlus
 
             public static readonly UnityEngine.GUIContent Search
                 = new UnityEngine.GUIContent(EditorGUIUtility.IconContent(VRCSDKPlusToolbox.Strings.IconSearch)) {tooltip = "Search"};
+
+            public static readonly UnityEngine.GUIContent Refresh
+                = new UnityEngine.GUIContent(EditorGUIUtility.IconContent(VRCSDKPlusToolbox.Strings.IconRefresh));
 
             public static readonly UnityEngine.GUIContent PickParameter
                 = new UnityEngine.GUIContent(EditorGUIUtility.IconContent(VRCSDKPlusToolbox.Strings.IconSearch));

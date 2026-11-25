@@ -30,21 +30,23 @@ namespace DreadScripts.VRCSDKPlus
             private const string BoolSignTooltip = "Bools are always unsigned.";
             private const string IntRangeTooltip = "The lowest and highest value this parameter can sync with the chosen bits and sign.";
             private const string FloatRangeTooltip = IntRangeTooltip + "\n\nStep is the smallest difference between two synced values. More bits make it smaller.";
+            private const string ResetTooltip = "Reset all advanced options of this parameter to their defaults";
             private const string BoolRangeTooltip = "Bools always use 1 bit and are either True or False.";
 
             /// <summary>
-            /// A parameter added to an empty list has every field zeroed, including bitWidth = 0, which the SDK clamps to
-            /// 2 bits. Give it the width a new parameter should have (8, or 1 for Bool), as the official editor does.
+            /// A new parameter is a copy of the last one, or has every field zeroed in an empty list, including bitWidth = 0,
+            /// which the SDK clamps to 2 bits. Give it the default advanced options instead.
             /// </summary>
-            private static void FixNewParameterBitWidth(SerializedProperty parameter)
+            private static void ResetAdvanced(SerializedProperty parameter)
             {
-                if (!hasAdvancedOptions || parameter == null) return;
+                // Older SDKs don't have these.
                 SerializedProperty bitWidth = parameter.FindPropertyRelative("bitWidth");
-                SerializedProperty valueType = parameter.FindPropertyRelative("valueType");
-                if (bitWidth == null || valueType == null) return;
+                SerializedProperty flippedRep = parameter.FindPropertyRelative("flippedRepresentation");
+                SerializedProperty useLerp = parameter.FindPropertyRelative("useCustomLerpDuration");
+                SerializedProperty lerpDuration = parameter.FindPropertyRelative("customLerpDuration");
+                if (bitWidth == null || flippedRep == null || useLerp == null || lerpDuration == null) return;
 
-                if (valueType.enumValueIndex == 2) bitWidth.intValue = 1;
-                else if (bitWidth.intValue < MinBits || bitWidth.intValue > MaxBits) bitWidth.intValue = MaxBits;
+                ResetAdvanced(parameter.FindPropertyRelative("valueType"), parameter.FindPropertyRelative("defaultValue"), bitWidth, flippedRep, useLerp, lerpDuration);
             }
 
             private float GetElementHeight(int index)
@@ -130,9 +132,51 @@ namespace DreadScripts.VRCSDKPlus
                     Take(gap);
                 }
 
+                Rect resetRect = new Rect(rect) { width = Mathf.Clamp(rect.width, 0, 50) };
+                resetRect.x = rect.xMax - resetRect.width;
+                rect.width -= resetRect.width;
+                using (new EditorGUI.DisabledScope(!HasNonDefaultAdvanced(typeIndex, EffectiveBits(typeIndex, bitWidth.intValue), flippedRep.boolValue, useLerp.boolValue)))
+                {
+                    w_MakeRectLinkCursor(resetRect);
+                    if (GUI.Button(resetRect, "Reset"))
+                        ResetAdvanced(valueType, defaultValue, bitWidth, flippedRep, useLerp, lerpDuration);
+                }
+                DrawTooltip(resetRect, ResetTooltip);
+
                 string rangeLabel = GetRangeLabel(typeIndex, EffectiveBits(typeIndex, bitWidth.intValue), IsSigned(typeIndex, flippedRep.boolValue));
                 string rangeTooltip = isBool ? BoolRangeTooltip : typeIndex == 1 ? FloatRangeTooltip : IntRangeTooltip;
                 GUI.Label(rect, new GUIContent(rangeLabel, rangeTooltip), EditorStyles.miniLabel);
+            }
+
+            private static void DrawResetIcon(Rect rect, SerializedProperty valueType, SerializedProperty defaultValue, SerializedProperty bitWidth, SerializedProperty flippedRep, SerializedProperty useLerp, SerializedProperty lerpDuration)
+            {
+                w_MakeRectLinkCursor(rect);
+                if (GUI.Button(rect, GUIContent.none, GUIStyle.none))
+                    ResetAdvanced(valueType, defaultValue, bitWidth, flippedRep, useLerp, lerpDuration);
+
+                if (Event.current.type == EventType.Repaint)
+                {
+                    // Mirrored, so the refresh arrow turns counter-clockwise.
+                    Color color = GUI.color;
+                    if (!GUI.enabled) GUI.color = new Color(color.r, color.g, color.b, color.a * 0.5f);
+                    Rect iconRect = new Rect(rect.x, rect.y + (rect.height - rect.width) / 2, rect.width, rect.width);
+                    GUI.DrawTextureWithTexCoords(iconRect, VRCSDKPlusToolbox.GUIContent.Refresh.image, new Rect(1, 0, -1, 1));
+                    GUI.color = color;
+                }
+                DrawTooltip(rect, ResetTooltip);
+            }
+
+            private static void ResetAdvanced(SerializedProperty valueType, SerializedProperty defaultValue, SerializedProperty bitWidth, SerializedProperty flippedRep, SerializedProperty useLerp, SerializedProperty lerpDuration)
+            {
+                // A text field that's being edited would keep showing its old value.
+                if (EditorGUIUtility.editingTextField) GUI.FocusControl(null);
+
+                int typeIndex = valueType.enumValueIndex;
+                bitWidth.intValue = EffectiveBits(typeIndex, MaxBits);
+                flippedRep.boolValue = false;
+                useLerp.boolValue = false;
+                lerpDuration.floatValue = 0;
+                ClampDefaultValue(valueType, defaultValue, MaxBits, IsSigned(typeIndex, false));
             }
 
             /// <summary>Dropdowns without a label can't have a tooltip of their own, so an empty label is drawn over them.</summary>
