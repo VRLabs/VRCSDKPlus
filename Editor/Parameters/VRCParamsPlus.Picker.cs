@@ -68,8 +68,9 @@ namespace DreadScripts.VRCSDKPlus
                 int newIndex = parameterList.arraySize;
                 parameterList.InsertArrayElementAtIndex(newIndex);
                 MakeParameterUnique(newIndex);
-                // Inserting into an empty array gives zeroed fields (bitWidth 0, which the SDK syncs as 2 bits).
-                FixNewParameterBitWidth(parameterList.GetArrayElementAtIndex(newIndex));
+                SerializedProperty parameter = parameterList.GetArrayElementAtIndex(newIndex);
+                parameter.isExpanded = false;
+                ResetAdvanced(parameter);
                 UpdateEmptyFlag();
                 // The row heights are cached.
                 invalidateListCache?.Invoke(parametersOrderList, null);
@@ -109,17 +110,8 @@ namespace DreadScripts.VRCSDKPlus
                         break;
                 }
 
-                // Older SDKs don't have these.
-                int typeIndex = valueType.enumValueIndex;
-                SerializedProperty bitWidth = parameter.FindPropertyRelative("bitWidth");
-                SerializedProperty flippedRep = parameter.FindPropertyRelative("flippedRepresentation");
-                SerializedProperty useLerp = parameter.FindPropertyRelative("useCustomLerpDuration");
-                SerializedProperty lerpDuration = parameter.FindPropertyRelative("customLerpDuration");
-                if (bitWidth != null) bitWidth.intValue = EffectiveBits(typeIndex, MaxBits);
-                if (flippedRep != null) flippedRep.boolValue = false;
-                if (useLerp != null) useLerp.boolValue = false;
-                if (lerpDuration != null) lerpDuration.floatValue = 0;
-                ClampDefaultValue(valueType, defaultValue, MaxBits, IsSigned(typeIndex, false));
+                ResetAdvanced(parameter);
+                ClampDefaultValue(valueType, defaultValue, MaxBits, IsSigned(valueType.enumValueIndex, false));
 
                 UpdateEmptyFlag();
                 serializedObject.ApplyModifiedProperties();
