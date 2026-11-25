@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
@@ -30,16 +29,6 @@ namespace DreadScripts.VRCSDKPlus
                 }
 
                 DrawParameterRow(rect, index);
-            }
-
-            // UnityEngine.GUIClip.visibleRect: the visible part of the current clip (the inspector's scroll view), in GUI space.
-            private static readonly PropertyInfo guiClipVisibleRect = typeof(GUI).Assembly.GetType("UnityEngine.GUIClip")?.GetProperty("visibleRect", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
-
-            private static bool IsRowVisible(Rect rect)
-            {
-                if (guiClipVisibleRect == null) return true;
-                try { return rect.Overlaps((Rect)guiClipVisibleRect.GetValue(null)); }
-                catch { return true; }
             }
 
             private static string lastSearchPattern;
@@ -71,8 +60,8 @@ namespace DreadScripts.VRCSDKPlus
             private void DrawParameterRow(Rect rect, int index)
             {
                 if (!(index < parameterList.arraySize && index >= 0)) return;
-                // DoLayoutList doesn't cull, so skip rows outside the inspector's visible area (long lists).
-                if (!IsRowVisible(rect)) return;
+                // Rows outside the visible area have to be drawn too. Unity numbers the controls in the order they're drawn,
+                // so skipping rows would move the keyboard focus to another field when scrolling or clicking.
 
                 SerializedProperty parameter = parameterList.GetArrayElementAtIndex(index);
                 SerializedProperty name = parameter.FindPropertyRelative("name");
@@ -141,6 +130,9 @@ namespace DreadScripts.VRCSDKPlus
                 Rect typeRect = UseEnd(ref rect, 52, true, 12, true);
                 Rect warnRect = UseEnd(ref rect, 18, true, 4, true);
                 Rect addRect = hasWarning && parameterAddable ? UseEnd(ref rect, 32, true, 4, true) : Rect.zero;
+                // Shown while the advanced options are collapsed. The expanded line has its own Reset button.
+                bool showReset = showAdvanced && !parameter.isExpanded && HasNonDefaultAdvanced(valueType.enumValueIndex, EffectiveBits(valueType.enumValueIndex, bitWidth.intValue), flippedRep.boolValue, useLerp.boolValue);
+                Rect resetRect = showReset ? UseEnd(ref rect, 14, true, 4, true) : Rect.zero;
                 Rect foldoutRect = showAdvanced ? UseNext(14, true) : Rect.zero;
                 // UseNext moves the rect without shrinking it, so the arrow's width has to come off the name.
                 Rect nameRect = UseNext(rect.width - foldoutRect.width - 4, true);
@@ -192,6 +184,14 @@ namespace DreadScripts.VRCSDKPlus
                         GUI.Label(nameRect, $"({matchedParameter.type})", VRCSDKPlusToolbox.Styles.Label.RightPlaceHolder);
 
                     if (hasSyncingOption) EditorGUI.PropertyField(syncedRect, synced, GUIContent.none);
+
+                    if (showReset)
+                    {
+                        Event current = Event.current;
+                        if (current.type == EventType.MouseDown && current.button == 0 && resetRect.Contains(current.mousePosition))
+                            advancedLineClicked = true;
+                        DrawResetIcon(resetRect, valueType, defaultValue, bitWidth, flippedRep, useLerp, lerpDuration);
+                    }
 
                     if (parameterAddable)
                     {
